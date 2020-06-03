@@ -3,7 +3,7 @@ import torch
 import random
 import matplotlib.pyplot as plt
 
-def tensor2im(image_tensor, imtype=np.uint8, normalize=True):  
+def tensor2im(image_tensor, imtype=np.uint8, normalize=False):  
     '''
         Converts a Tensor into a Numpy array
         Args:
@@ -28,25 +28,32 @@ def tensor2im(image_tensor, imtype=np.uint8, normalize=True):
         image_numpy = image_numpy[:,:,0]
     return image_numpy.astype(imtype)
 
-def grid_image(image_list, shape = None):
+def grid_image(image_list, shape, normalize=True, save_path = None):
     """Display a grid of images in a single figure with matplotlib.
     
     Parameters
     ---------
-    image_list: List of np.arrays compatible with plt.imshow.
+    image_list: List of np.arrays compatible with plt.imshow or pytorch 4D tensor with (B x C x H x W)
     
     shape: shape of the grid (5x5)/(8x8)
     """
-    images = image_list.copy()
+    if not torch.is_tensor(image_list):
+        images = image_list.copy()
+    else:
+        images = image_list
+        
     images = images[:shape[0]*shape[1]]
-    n_images = len(images)
     fig = plt.figure(figsize=(8,8))
-    plt.axis("off")
     for n, image in enumerate(images):
         a = fig.add_subplot(shape[0], shape[1], n + 1)
         if image.ndim == 2:
             plt.gray()
         a.axis("off")
+        if torch.is_tensor(image):
+            image = tensor2im(image, normalize=normalize)
         a.imshow(image)
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
     del images

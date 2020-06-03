@@ -11,6 +11,7 @@ class PokemonDataset(Dataset):
   def __getitem__(self, index):
     image = Image.open(self.paths[index]).convert('RGB')
     image = self.transform(image)
+    
     return (image, 1)
 
   def __len__(self):
