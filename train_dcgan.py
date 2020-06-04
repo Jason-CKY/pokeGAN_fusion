@@ -15,7 +15,7 @@ import torchvision.utils as vutils
 import cv2
 
 config = configparser.ConfigParser()
-config.read(os.path.join("cfg", "config_dcgan.ini"))
+config.read(os.path.join("cfg", "config.ini"))
 config = config['PARAMETERS']
 
 
@@ -28,10 +28,11 @@ def main():
                                 transforms.RandomHorizontalFlip(p=0.5),
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                            ]))
+                            ]),
+                            config=config)
     # Create the dataloader
     dataloader = torch.utils.data.DataLoader(dataset, batch_size= int(config['batch_size']),
-                                            shuffle=False, num_workers= int(config['workers']))
+                                            shuffle=True, num_workers= int(config['workers']))
 
     device = torch.device("cuda:0" if (torch.cuda.is_available() and int(config['ngpu']) > 0) else "cpu")
 
