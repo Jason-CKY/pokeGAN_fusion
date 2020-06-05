@@ -53,6 +53,18 @@ def get_random_labels(bs, num_classes, image_size, p=0.5):
 
 
 def main():
+    load_pretrained = False
+    if os.path.isfile(os.path.join(config['pretrained'] + '_netG.pt')):
+        load_pretrained = True
+        netD_path = os.path.join(config['pretrained'] + '_netD.pt')
+        netG_path = os.path.join(config['pretrained'] + '_netG.pt')
+        current_epoch = int(config['pretrained'].split(os.path.sep)[-1].split("_")[0])
+        current_iter = int(config['pretrained'].split(os.path.sep)[-1].split("_")[1])
+        print(current_epoch, current_iter)
+        print("pretrained")
+    else:
+        current_epoch = 0
+
     dataset = PokemonDataset(dataroot=config['dataroot'],
                             transform=transforms.Compose([
                                 transforms.Resize(int(config['image_size'])),
@@ -79,7 +91,10 @@ def main():
 
     # Apply the weights_init function to randomly initialize all weights
     #  to mean=0, stdev=0.2.
-    netG.apply(weights_init)
+    if load_pretrained:
+        netG.load_state_dict(torch.load(netG_path))
+    else:
+        netG.apply(weights_init)
     netG.train()
     # Print the model
     print(netG)
@@ -93,7 +108,10 @@ def main():
 
     # Apply the weights_init function to randomly initialize all weights
     #  to mean=0, stdev=0.2.
-    netD.apply(weights_init)
+    # netD.apply(weights_init)
+    if load_pretrained:
+        netD.load_state_dict(torch.load(netD_path))
+
     netD.train()
     # Print the model
     print(netD)
@@ -109,12 +127,13 @@ def main():
     fixed_onehot = get_random_labels(64, label_nc, image_size, p=0.5)[0].to(device)
 
     # Establish convention for real and fake labels during training
-    real_label = 1
+    real_label = 0.9    # GAN tricks #1: label smoothing
     fake_label = 0
 
     # Setup Adam optimizers for both G and D
-    optimizerD = optim.Adam(netD.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
-    optimizerG = optim.Adam(netG.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
+    # optimizerD = optim.Adam(netD.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
+    optimizerD = optim.Adam(filter(lambda p: p.requires_grad, netD.parameters()), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=float(config['lr']), betas=(float(config['beta1']) / 2, 0.999))
 
     # Training Loop
     num_epochs = int(config['num_epochs'])
@@ -125,10 +144,12 @@ def main():
     D_losses = []
     frames = []
     iters = 0
+    if load_pretrained:
+        iters = current_iter
 
     print("Starting Training Loop...")
     # For each epoch
-    for epoch in range(num_epochs):
+    for epoch in range(current_epoch+1, num_epochs):
         # For each batch in the dataloader
         for i, data in enumerate(dataloader, 0):
 
@@ -143,10 +164,17 @@ def main():
             c_fill = data[2].to(device)
             b_size = real_cpu.size(0)
             label = torch.full((b_size,), real_label, device=device)
+            # label = torch.rand(b_size,).uniform_(0.7, 0.9).to(device)   # label smoothing for real labels
+
             # Forward pass real batch through D
             output = netD(real_cpu, c_fill).view(-1)
+
+            # GAN tricks #2: occasionally flip labels
+            # label = util.flip_label(label, p=0.2).to(device)  # flip ~20% of the labels
+            
             # Calculate loss on all-real batch
             errD_real = criterion(output, label)
+
             # Calculate gradients for D in backward pass
             errD_real.backward()
             D_x = output.mean().item()
@@ -154,9 +182,6 @@ def main():
             ## Train with all-fake batch
             # Generate batch of latent vectors
             noise = torch.randn(b_size, nz, 1, 1, device=device)
-            # c_ = (torch.rand(b_size)*label_nc).type(torch.int64)
-            # c_onehot = F.one_hot(c_, num_classes=label_nc)
-            # c_onehot = c_onehot.view(b_size, label_nc, 1, 1).float().to(device)
             c_onehot, c_fill = get_random_labels(b_size, label_nc, image_size, p=0.5)
             c_onehot = c_onehot.to(device)
             c_fill = c_fill.to(device)
@@ -164,8 +189,13 @@ def main():
             # Generate fake image batch with G
             fake = netG(noise, c_onehot)
             label.fill_(fake_label)
+
             # Classify all fake batch with D
             output = netD(fake.detach(), c_fill).view(-1)
+
+            # GAN tricks #2: occasionally flip labels
+            # label = util.flip_label(label, p=0.2).to(device)  # flip ~20% of the labels
+
             # Calculate D's loss on the all-fake batch
             errD_fake = criterion(output, label)
             # Calculate the gradients for this batch
@@ -209,8 +239,8 @@ def main():
                 im = Image.fromarray(ndarr)
                 im.save(os.path.join("output", f"epoch{epoch}_iter{iters}.png"))
                 frames.append(im)
-                torch.save(netD, os.path.join("output", f"{iters}_netD.pt"))
-                torch.save(netG, os.path.join("output", f"{iters}_netG.pt"))
+                torch.save(netD.state_dict(), os.path.join("output", f"{epoch}_{iters}_netD.pt"))
+                torch.save(netG.state_dict(), os.path.join("output", f"{epoch}_{iters}_netG.pt"))
 
             iters += 1
 

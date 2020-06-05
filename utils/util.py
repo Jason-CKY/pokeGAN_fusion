@@ -3,6 +3,34 @@ import torch
 import random
 import matplotlib.pyplot as plt
 
+def randrange_1d(start, end, len):
+    '''
+        Create a 1d list of random float values from start <= x <= end
+        Args:
+            len: length of list created
+        Return: 
+            output: 1d list of random float values
+    '''
+    output = []
+    for i in range(len):
+        output.append(random.uniform(start, end))
+    return output
+
+def flip_label(label, p):
+    real = 0.9
+    fake = 0
+    output = []
+    for num in label:
+        if random.random() < p:
+            if num > 0.5:
+                output.append(fake)
+            else:
+                output.append(real)
+        else:
+            output.append(num)
+    output = torch.tensor(output)
+    return output
+
 def tensor2im(image_tensor, imtype=np.uint8, normalize=False):  
     '''
         Converts a Tensor into a Numpy array

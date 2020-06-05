@@ -164,8 +164,8 @@ def main():
                 im = Image.fromarray(ndarr)
                 im.save(os.path.join("output", f"epoch{epoch}_iter{iters}.png"))
                 frames.append(im)
-                torch.save(netD, os.path.join("output", f"{iters}_netD.pt"))
-                torch.save(netG, os.path.join("output", f"{iters}_netG.pt"))
+                torch.save(netD.state_dict(), os.path.join("output", f"{iters}_netD.pt"))
+                torch.save(netG.state_dict(), os.path.join("output", f"{iters}_netG.pt"))
 
             iters += 1
 
