@@ -26,9 +26,9 @@ Training with cDCGAN allows for fusion of different pokemon types to generate ne
 </table>
 
 ## Pretrained weights
-* DCGAN: [GoogleDrive] *link*
+* DCGAN: [GoogleDrive](https://drive.google.com/file/d/1TN_39wnvahnCFkinLUn97TshF_K4M5_t/view?usp=sharing)
     * Save the file into pretrained/dcgan/
-* cDCGAN: [GoogleDrive]https://drive.google.com/file/d/1a4121sFBESjLRRex1rYNjdz6lPv4Gm6M/view?usp=sharing
+* cDCGAN: [GoogleDrive](https://drive.google.com/file/d/1a4121sFBESjLRRex1rYNjdz6lPv4Gm6M/view?usp=sharing)
     * Save the file into pretrained/cdcgan/
 
 ## Implementation details
