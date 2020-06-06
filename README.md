@@ -19,9 +19,8 @@ Training with cDCGAN allows for fusion of different pokemon types to generate ne
 <td> cDCGAN</td>
 </tr>
 <tr>
-<!-- change the link to the actual animation.gif -->
-<td><img src = 'pretrained\cdcgan\animation.gif'> 
-<td><img src = 'pretrained\dcgan\animation.gif'>
+<td><img src = 'pretrained\dcgan\animation.gif'> 
+<td><img src = 'pretrained\cdcgan\animation.gif'>
 </tr>
 </table>
 
@@ -67,13 +66,15 @@ Training with cDCGAN allows for fusion of different pokemon types to generate ne
     4. transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
 ## Dependencies
-* 
+```
+conda env create -f environment.yml
+```
 
 ## How to use
 
 ### Training model from custom image dataset
 ```
-git clone ...
+git clone https://github.com/Jason-CKY/pokeGAN_fusion.git
 cd pokemonGAN_fusion
 ```
 Edit settings on cfg/config.ini
@@ -84,7 +85,7 @@ python train_cdcgan.py
 
 ### Generating new images
 ```
-git clone ...
+git clone https://github.com/Jason-CKY/pokeGAN_fusion.git
 cd pokemonGAN_fusion
 python test_dcgan.py -bs <batchsize> --output <path to output folder> < --grid >
 python test_cdcgan.py --primary type <primary type> --secondary_type <secondary type> -bs <batchsize> --output <path to output folder>  < --grid >

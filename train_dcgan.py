@@ -12,7 +12,6 @@ from models.dcgan import Generator, Discriminator, weights_init
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.utils as vutils
-import cv2
 import time
 
 config = configparser.ConfigParser()
