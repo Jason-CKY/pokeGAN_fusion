@@ -1,4 +1,6 @@
 .vscode
 *.pt
-output
-pretrained
+pretrained/cdcgan/*.pt
+pretrained/cdcgan/*.png
+pretrained/dcgan/*.pt
+pretrained/dcgan/*.png

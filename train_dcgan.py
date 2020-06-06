@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.utils as vutils
 import cv2
+import time
 
 config = configparser.ConfigParser()
 config.read(os.path.join("cfg", "config.ini"))
@@ -20,6 +21,18 @@ config = config['PARAMETERS']
 
 
 def main():
+    load_pretrained = False
+    if os.path.isfile(os.path.join(config['pretrained'] + '_netG.pt')):
+        load_pretrained = True
+        netD_path = os.path.join(config['pretrained'] + '_netD.pt')
+        netG_path = os.path.join(config['pretrained'] + '_netG.pt')
+        current_epoch = int(config['pretrained'].split(os.path.sep)[-1].split("_")[0]) + 1
+        current_iter = int(config['pretrained'].split(os.path.sep)[-1].split("_")[1])
+        print(current_epoch, current_iter)
+        print("pretrained")
+    else:
+        current_epoch = 0
+
     dataset = PokemonDataset(dataroot=config['dataroot'],
                             transform=transforms.Compose([
                                 transforms.Resize(int(config['image_size'])),
@@ -45,8 +58,12 @@ def main():
 
     # Apply the weights_init function to randomly initialize all weights
     #  to mean=0, stdev=0.2.
-    netG.apply(weights_init)
+    if load_pretrained:
+        netG.load_state_dict(torch.load(netG_path))
+    else:
+        netG.apply(weights_init)
     netG.train()
+
     # Print the model
     print(netG)
 
@@ -59,7 +76,12 @@ def main():
 
     # Apply the weights_init function to randomly initialize all weights
     #  to mean=0, stdev=0.2.
-    netD.apply(weights_init)
+    # netD.apply(weights_init)
+    if load_pretrained:
+        netD.load_state_dict(torch.load(netD_path))
+    else:
+        netD.apply(weights_init)
+
     netD.train()
     # Print the model
     print(netD)
@@ -73,12 +95,13 @@ def main():
     fixed_noise = torch.randn(64, int(config['nz']), 1, 1, device=device)
 
     # Establish convention for real and fake labels during training
-    real_label = 1
+    real_label = 0.9    # GAN tricks #1: label smoothing
     fake_label = 0
 
     # Setup Adam optimizers for both G and D
-    optimizerD = optim.Adam(netD.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
-    optimizerG = optim.Adam(netG.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
+    # optimizerD = optim.Adam(netD.parameters(), lr=float(config['netD_lr']), betas=(float(config['beta1']), 0.999))
+    optimizerD = optim.Adam(filter(lambda p: p.requires_grad, netD.parameters()), lr=float(config['netD_lr']), betas=(float(config['beta1']), 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=float(config['netG_lr']), betas=(float(config['beta1']), 0.999))
 
     # Training Loop
     num_epochs = int(config['num_epochs'])
@@ -89,10 +112,13 @@ def main():
     D_losses = []
     frames = []
     iters = 0
+    if load_pretrained:
+        iters = current_iter
 
     print("Starting Training Loop...")
+    start_time = time.time()
     # For each epoch
-    for epoch in range(num_epochs):
+    for epoch in range(current_epoch, num_epochs):
         # For each batch in the dataloader
         for i, data in enumerate(dataloader, 0):
 
@@ -148,8 +174,11 @@ def main():
 
             # Output training stats
             if i % 50 == 0:
-                print(f"[{epoch}/{num_epochs}][{i}/{len(dataloader)}]\tLoss_D: {errD.item():.4f}\t  \
+                end_time = time.time()
+                duration = end_time - start_time
+                print(f"{duration:.2f}s, [{epoch}/{num_epochs}][{i}/{len(dataloader)}]\tLoss_D: {errD.item():.4f}\t  \
                 Loss_G: {errG.item():.4f}\tD(x): {D_x:.4f}\tD(G(z)): {D_G_z1:.4f} / {D_G_z2:.4f}")
+                start_time = time.time()
 
             # Save Losses for plotting later
             G_losses.append(errG.item())
@@ -164,8 +193,8 @@ def main():
                 im = Image.fromarray(ndarr)
                 im.save(os.path.join("output", f"epoch{epoch}_iter{iters}.png"))
                 frames.append(im)
-                torch.save(netD.state_dict(), os.path.join("output", f"{iters}_netD.pt"))
-                torch.save(netG.state_dict(), os.path.join("output", f"{iters}_netG.pt"))
+                torch.save(netD.state_dict(), os.path.join("output", f"{epoch}_{iters}_netD.pt"))
+                torch.save(netG.state_dict(), os.path.join("output", f"{epoch}_{iters}_netG.pt"))
 
             iters += 1
 
@@ -176,7 +205,7 @@ def main():
     plt.xlabel("iterations")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig("loss_curve.png")
+    plt.savefig(os.path.join("output", "loss_curve.png"))
     frames[0].save(os.path.join('output', 'animation.gif'), format='GIF', append_images=frames[1:], save_all=True, duration=500, loop=0)
 
 if __name__ == '__main__':

@@ -12,45 +12,13 @@ from models.cdcgan import Generator, Discriminator, weights_init
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.utils as vutils
-import cv2
 import torch.nn.functional as F
 import random
+import time
 
 config = configparser.ConfigParser()
 config.read(os.path.join("cfg", "config.ini"))
 config = config['PARAMETERS']
-
-def get_random_labels(bs, num_classes, image_size, p=0.5):
-    '''
-        Generate random onehot vector of labels for generator class.
-        Since pokemon can have 1-2 types, there is a <probability, default=0.5> for the 
-        onehot vector to have 2 indices with value of 1.
-        Args:
-            bs: batch size of the data
-            num_classes: number of label classes
-            p: probability of having a second type
-        Return:
-            onehot: onehot label for G
-            c_fill: onehot label for D
-    '''
-    fill = torch.zeros([num_classes, num_classes, image_size, image_size])
-    onehot = (torch.rand(bs) * num_classes).type(torch.int64)
-    for i in range(num_classes):
-        fill[i, i, :, :] = 1
-
-    c_fill = fill[onehot]
-    onehot = F.one_hot(onehot, num_classes=num_classes)
-
-    for x, fill in zip(onehot, c_fill):
-        if random.random() <= p:
-            indice = (x==1).nonzero()
-            new_indice = random.randint(0, num_classes-1)
-            while new_indice == indice:
-                new_indice = random.randint(0, num_classes-1)
-            fill[new_indice] = 1
-            x[new_indice] = 1
-    return onehot.float().view(bs, num_classes, 1, 1), c_fill
-
 
 def main():
     load_pretrained = False
@@ -58,7 +26,7 @@ def main():
         load_pretrained = True
         netD_path = os.path.join(config['pretrained'] + '_netD.pt')
         netG_path = os.path.join(config['pretrained'] + '_netG.pt')
-        current_epoch = int(config['pretrained'].split(os.path.sep)[-1].split("_")[0])
+        current_epoch = int(config['pretrained'].split(os.path.sep)[-1].split("_")[0]) + 1
         current_iter = int(config['pretrained'].split(os.path.sep)[-1].split("_")[1])
         print(current_epoch, current_iter)
         print("pretrained")
@@ -124,7 +92,7 @@ def main():
     # Create batch of latent vectors that we will use to visualize
     #  the progression of the generator
     fixed_noise = torch.randn(64, int(config['nz']), 1, 1, device=device)
-    fixed_onehot = get_random_labels(64, label_nc, image_size, p=0.5)[0].to(device)
+    fixed_onehot = util.get_random_labels(64, label_nc, image_size, p=0.5)[0].to(device)
 
     # Establish convention for real and fake labels during training
     real_label = 0.9    # GAN tricks #1: label smoothing
@@ -132,8 +100,8 @@ def main():
 
     # Setup Adam optimizers for both G and D
     # optimizerD = optim.Adam(netD.parameters(), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
-    optimizerD = optim.Adam(filter(lambda p: p.requires_grad, netD.parameters()), lr=float(config['lr']), betas=(float(config['beta1']), 0.999))
-    optimizerG = optim.Adam(netG.parameters(), lr=float(config['lr']), betas=(float(config['beta1']) / 2, 0.999))
+    optimizerD = optim.Adam(filter(lambda p: p.requires_grad, netD.parameters()), lr=float(config['netD_lr']), betas=(float(config['beta1']), 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=float(config['netG_lr']), betas=(float(config['beta1']), 0.999))
 
     # Training Loop
     num_epochs = int(config['num_epochs'])
@@ -148,8 +116,9 @@ def main():
         iters = current_iter
 
     print("Starting Training Loop...")
+    start_time = time.time()
     # For each epoch
-    for epoch in range(current_epoch+1, num_epochs):
+    for epoch in range(current_epoch, num_epochs):
         # For each batch in the dataloader
         for i, data in enumerate(dataloader, 0):
 
@@ -182,7 +151,7 @@ def main():
             ## Train with all-fake batch
             # Generate batch of latent vectors
             noise = torch.randn(b_size, nz, 1, 1, device=device)
-            c_onehot, c_fill = get_random_labels(b_size, label_nc, image_size, p=0.5)
+            c_onehot, c_fill = util.get_random_labels(b_size, label_nc, image_size, p=0.5)
             c_onehot = c_onehot.to(device)
             c_fill = c_fill.to(device)
 
@@ -223,8 +192,11 @@ def main():
 
             # Output training stats
             if i % 50 == 0:
-                print(f"[{epoch}/{num_epochs}][{i}/{len(dataloader)}]\tLoss_D: {errD.item():.4f}\t  \
+                end_time = time.time()
+                duration = end_time - start_time
+                print(f"{duration:.2f}s, [{epoch}/{num_epochs}][{i}/{len(dataloader)}]\tLoss_D: {errD.item():.4f}\t  \
                 Loss_G: {errG.item():.4f}\tD(x): {D_x:.4f}\tD(G(z)): {D_G_z1:.4f} / {D_G_z2:.4f}")
+                start_time = time.time()
 
             # Save Losses for plotting later
             G_losses.append(errG.item())
@@ -251,7 +223,7 @@ def main():
     plt.xlabel("iterations")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig("loss_curve.png")
+    plt.savefig(os.path.join("output", "loss_curve.png"))
     frames[0].save(os.path.join('output', 'animation.gif'), format='GIF', append_images=frames[1:], save_all=True, duration=500, loop=0)
 
 if __name__ == '__main__':

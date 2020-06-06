@@ -2,21 +2,82 @@ import numpy as np
 import torch
 import random
 import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
 
-def randrange_1d(start, end, len):
+def get_GAN_onehot_labels(primary_type, secondary_type, bs, label_nc):
+    label_dictionary = {
+    'grass' : 0, 
+    'fire' : 1, 
+    'water' : 2, 
+    'bug' : 3, 
+    'normal' : 4, 
+    'poison' : 5, 
+    'electric' : 6, 
+    'ground' : 7, 
+    'fairy' : 8, 
+    'fighting' : 9, 
+    'psychic' : 10, 
+    'rock' : 11, 
+    'ghost' : 12, 
+    'ice' : 13, 
+    'dragon' : 14, 
+    'dark' : 15, 
+    'steel' : 16, 
+    'flying' : 17
+    }
+    
+    onehot_label = F.one_hot(torch.tensor(label_dictionary[primary_type.lower()]), num_classes=label_nc)
+    if secondary_type is not None:     
+        onehot_label += F.one_hot(torch.tensor(label_dictionary[secondary_type.lower()]), num_classes=label_nc)
+
+    output_label = []
+    for _ in range(bs):
+        output_label.append(list(onehot_label.numpy()))
+    output_label = torch.tensor(output_label).float().view(bs, label_nc, 1, 1)
+
+    return output_label
+
+def get_random_labels(bs, num_classes, image_size, p=0.5):
     '''
-        Create a 1d list of random float values from start <= x <= end
+        Generate random onehot vector of labels for generator class.
+        Since pokemon can have 1-2 types, there is a <probability, default=0.5> for the 
+        onehot vector to have 2 indices with value of 1.
         Args:
-            len: length of list created
-        Return: 
-            output: 1d list of random float values
+            bs: batch size of the data
+            num_classes: number of label classes
+            p: probability of having a second type
+        Return:
+            onehot: onehot label for G
+            c_fill: onehot label for D
     '''
-    output = []
-    for i in range(len):
-        output.append(random.uniform(start, end))
-    return output
+    fill = torch.zeros([num_classes, num_classes, image_size, image_size])
+    onehot = (torch.rand(bs) * num_classes).type(torch.int64)
+    for i in range(num_classes):
+        fill[i, i, :, :] = 1
+
+    c_fill = fill[onehot]
+    onehot = F.one_hot(onehot, num_classes=num_classes)
+
+    for x, fill in zip(onehot, c_fill):
+        if random.random() <= p:
+            indice = (x==1).nonzero()
+            new_indice = random.randint(0, num_classes-1)
+            while new_indice == indice:
+                new_indice = random.randint(0, num_classes-1)
+            fill[new_indice] = 1
+            x[new_indice] = 1
+    return onehot.float().view(bs, num_classes, 1, 1), c_fill
 
 def flip_label(label, p):
+    '''
+        Randomly flip the labels based on probability p
+        Args:
+            label: tensor of labels
+            p: probability
+        Return:
+            output: new labels tensor with flipped labels
+    '''
     real = 0.9
     fake = 0
     output = []
