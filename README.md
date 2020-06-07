@@ -87,8 +87,8 @@ python train_cdcgan.py
 ```
 git clone https://github.com/Jason-CKY/pokeGAN_fusion.git
 cd pokemonGAN_fusion
-python test_dcgan.py -bs <batchsize> --output <path to output folder> < --grid >
-python test_cdcgan.py --primary type <primary type> --secondary_type <secondary type> -bs <batchsize> --output <path to output folder>  < --grid >
+python test_dcgan.py --weights <path to dcgan Generator weights file> -bs <batchsize> --output <path to output folder> < --grid >
+python test_cdcgan.py --weights <path to dcgan Generator weights file> --primary type <primary type> --secondary_type <secondary type> -bs <batchsize> --output <path to output folder>  < --grid >
 ```
 
 ### Issues

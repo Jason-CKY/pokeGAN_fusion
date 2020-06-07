@@ -32,8 +32,12 @@ def parse_args():
                         help='output directory',
                         required=True,
                         type=str)
+    parser.add_argument('--weights',
+                        help='path to generator weights',
+                        required=True,
+                        type=str)
     parser.add_argument('--grid',
-                        help='output directory',
+                        help='output in grid format',
                         action="store_true")
 
     args = parser.parse_args()
@@ -42,11 +46,15 @@ def parse_args():
 
 def main():
     args = parse_args()
-    pt_path = config['pretrained']+'_netG.pt'
+    # pt_path = config['pretrained']+'_netG.pt'
+    pt_path = args.weights
     if not os.path.isfile(pt_path):
         print(f"{pt_path} pt file does not exist.")
         return
 
+    if not os.path.isdir(args.output):
+        os.makedirs(args.output, exist_ok=True)
+        
     device = torch.device("cuda:0" if (torch.cuda.is_available() and int(config['ngpu']) > 0) else "cpu")
 
     # Create the generator
